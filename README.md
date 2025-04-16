@@ -66,8 +66,10 @@ Create a `config.json` file in the same directory as the script with the followi
 #### Kapowarr Settings
 - `url`: Base URL of your Kapowarr instance
 - `api_key`: Your Kapowarr API key
-- `root`: Root directory for Kapowarr files
-- `root_folder_id`: ID of the root folder in Kapowarr
+- `root`: Root directory for Kapowarr files on the host system (not the container path)
+  - For Docker users: Use the host path that maps to Kapowarr's `/comics-1` directory
+  - Example: If your Docker volume mapping is `/mnt/user/data/media/kapowarr:/comics-1`, use `/mnt/user/data/media/kapowarr`
+- `root_folder_id`: ID of the root folder in Kapowarr (typically 1 for `/comics-1`)
 
 #### Options
 - `copy_files`: Whether to copy files from Mylar to Kapowarr
@@ -145,6 +147,7 @@ Found 5 issues in Mylar
 2. **File Permission Issues**
    - Ensure the script has write access to Kapowarr's root directory
    - Check file permissions on both Mylar and Kapowarr directories
+   - For Docker users: Make sure the host path specified in `root` matches your Docker volume mapping
 
 3. **Rate Limiting**
    - If you encounter API rate limits, increase the `delay` in config.json
