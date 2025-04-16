@@ -46,7 +46,6 @@ Create a `config.json` file in the same directory as the script with the followi
     },
     "options": {
         "copy_files": true,
-        "rename_files": false,
         "refresh_scan": true,
         "mass_rename": true,
         "dry_run": false,
@@ -73,9 +72,10 @@ Create a `config.json` file in the same directory as the script with the followi
 
 #### Options
 - `copy_files`: Whether to copy files from Mylar to Kapowarr
-- `rename_files`: Whether to rename files according to Kapowarr's naming scheme
 - `refresh_scan`: Whether to trigger a refresh and scan after copying files
-- `mass_rename`: Whether to trigger a mass rename task after copying files
+- `mass_rename`: Whether to trigger Kapowarr's built-in mass rename task after copying files
+  - This will rename files according to Kapowarr's naming scheme
+  - Recommended to enable this for proper file organization
 - `dry_run`: If true, only log what would be done without making changes
 - `delay`: Delay between comics in seconds (to respect API rate limits)
   - Recommended minimum: 20 seconds
@@ -195,7 +195,7 @@ The script performs the migration in the following steps:
 
 4. **Post-Processing**
    - If enabled, triggers a refresh and scan in Kapowarr
-   - If enabled, runs a mass rename task to ensure proper file naming
+   - If enabled, runs Kapowarr's built-in mass rename task to ensure proper file naming
    - Respects API rate limits with configurable delays
 
 ### Example Flow
