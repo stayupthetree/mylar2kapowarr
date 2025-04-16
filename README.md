@@ -78,6 +78,8 @@ Create a `config.json` file in the same directory as the script with the followi
 - `mass_rename`: Whether to trigger a mass rename task after copying files
 - `dry_run`: If true, only log what would be done without making changes
 - `delay`: Delay between comics in seconds (to respect API rate limits)
+  - Recommended minimum: 20 seconds
+  - Default: 25 seconds
 - `log_level`: Logging level (DEBUG, INFO, WARNING, ERROR)
 - `limit`: Maximum number of comics to process (0 for all)
 
@@ -151,7 +153,9 @@ Found 5 issues in Mylar
 
 3. **Rate Limiting**
    - If you encounter API rate limits, increase the `delay` in config.json
+   - Recommended minimum delay is 20 seconds between comics
    - Default is 25 seconds between comics
+   - Increase the delay if you experience rate limiting issues
 
 ### Logging
 
@@ -160,6 +164,71 @@ Found 5 issues in Mylar
 - Errors are clearly marked with ✗
 - Successes are marked with ✓
 - Placeholder files are marked with ⚠
+
+## Contributing
+
+Feel free to submit issues and enhancement requests!
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Migration Process
+
+The script performs the migration in the following steps:
+
+1. **Comic Series Migration**
+   - Fetches all comic series from Mylar
+   - Adds each series to Kapowarr if it doesn't already exist
+   - Maintains the same monitoring status as in Mylar
+
+2. **Issue Processing**
+   - For each comic series:
+     - Fetches all issues from Mylar
+     - Matches issues with Kapowarr
+     - Skips placeholder files for unreleased issues
+
+3. **File Transfer**
+   - Downloads files directly from Mylar
+   - Saves them to Kapowarr's folder structure
+   - Maintains proper file organization
+
+4. **Post-Processing**
+   - If enabled, triggers a refresh and scan in Kapowarr
+   - If enabled, runs a mass rename task to ensure proper file naming
+   - Respects API rate limits with configurable delays
+
+### Example Flow
+
+```
+1. Fetch comics from Mylar
+   └─ Found 411 comics
+
+2. Process each comic
+   ├─ Check if exists in Kapowarr
+   │  ├─ If exists: Skip
+   │  └─ If new: Add to Kapowarr
+   │
+   ├─ Get issues from Mylar
+   │  └─ Found 5 issues
+   │
+   ├─ Match and download issues
+   │  ├─ Issue #1: Download file
+   │  ├─ Issue #2: Skip placeholder
+   │  └─ Issue #3: Download file
+   │
+   └─ Post-process
+      ├─ Refresh and scan
+      └─ Mass rename
+```
+
+### Important Notes
+
+- The script maintains the original ComicVine IDs to ensure proper metadata matching
+- Files are downloaded directly from Mylar's API
+- Placeholder files for unreleased issues are automatically skipped
+- The script can be resumed from any point using the `--resume-from` option
+- Rate limiting is built-in to prevent API throttling
 
 ## Contributing
 
