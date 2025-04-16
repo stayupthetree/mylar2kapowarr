@@ -146,15 +146,12 @@ class MylarAPI:
             logger.error(f"Failed to download issue {issue_id}: {e}")
             return ""
 
-    def get_comics(self, cmd: str = "getComics") -> List[Dict]:
+    def get_comics(self, cmd: str = "getIndex") -> List[Dict]:
         """
         Fetch the list of comic series from Mylar.
         
         Args:
-            cmd: The API command to use. Options include:
-                - 'getComics' (for older Mylar versions)
-                - 'getSeries' (for newer Mylar3 versions)
-                - 'getIndex' (alternative approach)
+            cmd: The API command to use (default: getIndex)
         
         Returns:
             A list of comics from the Mylar API
@@ -162,12 +159,10 @@ class MylarAPI:
         logger.info(f"Fetching comics from Mylar using '{cmd}' command")
         data = self._make_request(cmd)
         
-        # Try to extract comics from response based on the command
+        # Try to extract comics from response
         comics = []
         
-        if cmd == "getComics" or cmd == "getSeries":
-            comics = data.get("data", [])
-        elif cmd == "getIndex":
+        if cmd == "getIndex":
             # getIndex directly returns a list in the data field
             if isinstance(data.get("data"), list):
                 comics = data.get("data", [])
@@ -196,14 +191,6 @@ class MylarAPI:
         params = {"id": comic_id}
         data = self._make_request("getComic", params)
         return data.get("data", {})
-
-    def get_issues(self, comic_id: str) -> List[Dict]:
-        """
-        Fetch the list of issues for a comic series.
-        This information is included in the getComic response.
-        """
-        comic_data = self.get_comic_info(comic_id)
-        return comic_data.get("issues", [])
     
     def get_wanted(self) -> Dict:
         """
@@ -379,13 +366,6 @@ class KapowarrAPI:
             logger.error(f"Failed to add volume to Kapowarr: {error_message}")
             raise
     
-    def get_volumes(self) -> List[Dict]:
-        """
-        Get all volumes from Kapowarr.
-        """
-        response = self._make_request("GET", "volumes")
-        return response.get("result", [])
-
     def get_volume(self, volume_id: int) -> Dict:
         """
         Get a specific volume from Kapowarr.
@@ -457,17 +437,6 @@ class KapowarrAPI:
             logger.error(f"Failed to create mass rename task for {target_name}: {e}")
             return {}
     
-    def propose_library_import(self, folder_filter: str = None) -> List[Dict]:
-        """
-        Use Kapowarr's library import function to scan for comic files.
-        """
-        params = {}
-        if folder_filter:
-            params["folder_filter"] = folder_filter
-        
-        response = self._make_request("GET", "libraryimport", params=params)
-        return response.get("result", [])
-    
     def import_library(self, import_data: List[Dict], rename_files: bool = False) -> Dict:
         """
         Import comic files into Kapowarr.
@@ -477,92 +446,12 @@ class KapowarrAPI:
         return response.get("result", {})
 
 
-
-
-def map_kapowarr_to_mylar_path(kapowarr_path: str, mylar_root: str, kapowarr_root: str) -> str:
-    """
-    Map Kapowarr's folder structure to Mylar's folder structure.
-    
-    Args:
-        kapowarr_path: The path in Kapowarr (e.g., /comics-1/Marvel/Comic Name/Volume 01 (2022))
-        mylar_root: The root path for Mylar files on the host system
-        kapowarr_root: The root path for Kapowarr files on the host system
-        
-    Returns:
-        The equivalent path in Mylar's filesystem
-    """
-    # First, convert from Kapowarr container path to a standard path
-    if kapowarr_path.startswith("/comics-1/"):
-        path = kapowarr_path[len("/comics-1/"):]
-    else:
-        path = kapowarr_path
-    
-    # Extract components: publisher/series/volume
-    parts = path.strip('/').split('/')
-    
-    if len(parts) >= 1:
-        publisher = parts[0]
-        mylar_path = os.path.join(mylar_root, publisher)
-        
-        if len(parts) >= 2:
-            series = parts[1]
-            mylar_path = os.path.join(mylar_path, series)
-            
-            # If there's a volume component, add it
-            if len(parts) >= 3:
-                volume = parts[2]
-                mylar_path = os.path.join(mylar_path, volume)
-    else:
-        # If we can't parse the path, just return the mylar root
-        mylar_path = mylar_root
-    
-    logger.info(f"Mapped Kapowarr path {kapowarr_path} to Mylar path {mylar_path}")
-    return mylar_path
-
-
-def convert_path_to_kapowarr(mylar_path: str, mylar_root: str, kapowarr_root: str) -> str:
-    """
-    Convert a file path from Mylar format to Kapowarr format based on volume mapping.
-    
-    Args:
-        mylar_path: The path in Mylar's format
-        mylar_root: The root path in the host system for Mylar (/mnt/user/data/media/comics)
-        kapowarr_root: The root path in the host system for Kapowarr (/mnt/user/data/media/kapowarr)
-        
-    Returns:
-        The equivalent path in Kapowarr's format
-    """
-    # Handle docker volume mappings
-    # Mylar container: /mnt/user/data/media/comics → /comics
-    # Kapowarr container: /mnt/user/data/media/kapowarr → /comics-1
-    
-    # First, convert from Mylar container path to host path
-    if mylar_path.startswith("/comics/"):
-        host_path = mylar_path.replace("/comics/", f"{mylar_root}/")
-    else:
-        host_path = mylar_path
-    
-    # Then convert from host path to Kapowarr container path
-    if host_path.startswith(mylar_root):
-        kapowarr_path = host_path.replace(mylar_root, kapowarr_root)
-    else:
-        # If it's already using the host path pattern for Kapowarr
-        if host_path.startswith(kapowarr_root):
-            kapowarr_path = host_path
-        else:
-            # If we can't map it directly, just use the original path
-            kapowarr_path = host_path
-    
-    return kapowarr_path
-
-
 def copy_files_to_kapowarr(
     mylar_files: List[Dict], 
     kapowarr_volume: Dict,
     mylar_root: str, 
     kapowarr_root: str, 
     dry_run: bool = False,
-    use_kapowarr_import: bool = False,
     kapowarr_api: Optional[Any] = None
 ) -> int:
     """
@@ -574,7 +463,6 @@ def copy_files_to_kapowarr(
         mylar_root: The root path for Mylar files on the host system
         kapowarr_root: The root path for Kapowarr files on the host system
         dry_run: If True, don't actually copy files, just log what would be done
-        use_kapowarr_import: If True, use Kapowarr's library import endpoint to import files
         kapowarr_api: The KapowarrAPI instance (required if use_kapowarr_import is True)
         
     Returns:
@@ -596,74 +484,6 @@ def copy_files_to_kapowarr(
         issue_number = file_info.get("issue_number", "unknown")
         file_path = file_info.get("file_path", "unknown")
         logger.info(f"File {i+1}/{len(mylar_files)}: Issue #{issue_number}, Path: {file_path}")
-    
-    # If using Kapowarr import, prepare import data for API
-    if use_kapowarr_import and kapowarr_api:
-        if dry_run:
-            logger.info("DRY RUN: Would import files using Kapowarr's library import API")
-            for file_info in mylar_files:
-                source_path = file_info["file_path"]
-                if source_path.startswith("/comics/"):
-                    source_host_path = source_path.replace("/comics/", f"{mylar_root}/")
-                else:
-                    source_host_path = source_path
-                logger.info(f"DRY RUN: Would prepare file for import: {source_host_path}")
-            return len(mylar_files)
-        
-        # Prepare import data - we'll need file paths and issue IDs
-        import_data = []
-        for file_info in mylar_files:
-            source_path = file_info["file_path"]
-            # Convert container path to host path if needed
-            if source_path.startswith("/comics/"):
-                source_host_path = source_path.replace("/comics/", f"{mylar_root}/")
-            else:
-                source_host_path = source_path
-            
-            if not os.path.isfile(source_host_path):
-                logger.warning(f"Source file does not exist: {source_host_path}")
-                continue
-            
-            # Convert to Kapowarr container path for import
-            kapowarr_path = source_host_path.replace(mylar_root, "/comics-1")
-            
-            # Find issue ID from Kapowarr volume data
-            issue_id = None
-            issue_number = file_info.get("issue_number", "")
-            if issue_number and "issues" in kapowarr_volume:
-                for issue in kapowarr_volume["issues"]:
-                    if str(issue.get("issue_number", "")) == str(issue_number):
-                        issue_id = issue.get("id")
-                        break
-            
-            if issue_id:
-                import_data.append({
-                    "filepath": kapowarr_path,
-                    "id": issue_id
-                })
-                logger.info(f"Prepared file for import: {kapowarr_path} -> Issue ID: {issue_id}")
-            else:
-                logger.warning(f"Could not find issue ID for file: {source_host_path} (issue #{issue_number})")
-                # Add it anyway with volume ID for now
-                import_data.append({
-                    "filepath": kapowarr_path,
-                    "id": volume_id
-                })
-                logger.info(f"Added file to import with volume ID: {kapowarr_path} -> Volume ID: {volume_id}")
-        
-        # Import the files using Kapowarr's API
-        if import_data:
-            try:
-                logger.info(f"Importing {len(import_data)} files using Kapowarr's library import API")
-                result = kapowarr_api.import_library(import_data, rename_files=True)
-                logger.info(f"Import result: {result}")
-                return len(import_data)
-            except Exception as e:
-                logger.error(f"Error importing files using Kapowarr API: {e}")
-                return 0
-        else:
-            logger.warning("No files prepared for import")
-            return 0
     
     # Using direct file copy method
     # Make sure the folder starts with the Kapowarr container path
@@ -743,7 +563,6 @@ def migrate_comics(
     dry_run: bool,
     limit: int, 
     resume_from: str = None,
-    rename_files: bool = False,
     refresh_scan: bool = False,
     mass_rename: bool = False,
     delay: int = 20
@@ -1000,7 +819,7 @@ def test_mylar_api(url: str, api_key: str, cmd: str):
     Args:
         url: The Mylar API URL
         api_key: The Mylar API key
-        cmd: The command to test (e.g., 'getComics', 'getIndex', 'getComic')
+        cmd: The command to test (e.g., 'getIndex', 'getComic')
     """
     logger.info(f"Testing Mylar API with command: {cmd}")
     
@@ -1016,49 +835,6 @@ def test_mylar_api(url: str, api_key: str, cmd: str):
     mylar._make_request(cmd, params)
     
     logger.info(f"Mylar API test with {cmd} completed")
-
-
-def find_comics_with_files(mylar_url: str, mylar_api_key: str, limit: int = 5) -> List[Dict]:
-    """
-    Find comics in Mylar that have actual files associated with them.
-    
-    Args:
-        mylar_url: The base URL for Mylar
-        mylar_api_key: The API key for Mylar
-        limit: Maximum number of comics to check
-        
-    Returns:
-        List of comics with files
-    """
-    mylar = MylarAPI(mylar_url, mylar_api_key)
-    comics = mylar.get_comics(cmd="getIndex")
-    
-    logger.info(f"Checking up to {limit} comics for files")
-    comics_with_files = []
-    
-    for i, comic in enumerate(comics[:limit]):
-        comic_id = comic.get("id") or comic.get("ComicID") or comic.get("comicid")
-        title = comic.get("name") or comic.get("ComicName") or comic.get("Title") or "Unknown"
-        
-        if not comic_id:
-            continue
-            
-        logger.info(f"Checking if comic '{title}' (ID: {comic_id}) has files")
-        
-        files = get_mylar_comic_files(mylar_url, mylar_api_key, comic_id, title)
-        
-        if files:
-            logger.info(f"Comic '{title}' has {len(files)} files")
-            comics_with_files.append({
-                "id": comic_id,
-                "title": title,
-                "files": files
-            })
-        else:
-            logger.info(f"Comic '{title}' has no files")
-    
-    logger.info(f"Found {len(comics_with_files)} comics with files")
-    return comics_with_files
 
 
 def test_kapowarr_api(url: str, api_key: str, test_type: str = "auth"):
@@ -1162,10 +938,6 @@ def main():
                        action="store_true",
                        default=config.get("options", {}).get("copy_files", False),
                        help="Copy files from Mylar to Kapowarr")
-    parser.add_argument("--rename-files", 
-                       action="store_true",
-                       default=config.get("options", {}).get("rename_files", False),
-                       help="Use Kapowarr's library import API to rename files according to Kapowarr's naming scheme")
     parser.add_argument("--refresh-scan", 
                        action="store_true",
                        default=config.get("options", {}).get("refresh_scan", False),
@@ -1265,7 +1037,6 @@ def main():
             args.dry_run,
             args.limit,
             args.resume_from,
-            args.rename_files,
             args.refresh_scan,
             args.mass_rename,
             args.delay
